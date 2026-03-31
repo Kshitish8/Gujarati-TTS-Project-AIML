@@ -1,0 +1,104 @@
+"""
+Web Interface for Gujarati Text-to-Speech using Streamlit
+Run with: streamlit run app.py
+"""
+
+import streamlit as st
+import os
+import tempfile
+from gujarati_tts import GujaratiTTS
+
+# Page configuration
+st.set_page_config(page_title="Gujarati TTS", page_icon="🔊", layout="wide")
+
+# Initialize TTS Engine
+@st.cache_resource
+def get_tts_engine():
+    return GujaratiTTS(allow_online_fallback=True)
+
+tts = get_tts_engine()
+
+# Header
+st.title("🔊 Gujarati Text-to-Speech Converter")
+st.markdown("An AI/ML project to convert Gujarati text into natural speech using Neural Text-to-Speech synthesis.")
+
+# Main Layout
+tab1, tab2, tab3 = st.tabs(["🎯 Convert Text", "📚 Examples", "ℹ️ About"])
+
+# TAB 1: Convert Text
+with tab1:
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        gujarati_text = st.text_area(
+            "📝 Enter Gujarati Text:",
+            placeholder="નમસ્તે, આ એક ગુજરાતી ટેક્સ્ટ ટુ સ્પીચ પ્રોજેક્ટ છે।",
+            height=200
+        )
+    
+    with col2:
+        st.markdown("### Actions")
+        if st.button("▶️ Generate & Play Audio", use_container_width=True, type="primary"):
+            if gujarati_text.strip():
+                with st.spinner("Generating Neural Audio..."):
+                    # Create a temporary file to hold the audio
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+                    temp_path = temp_file.name
+                    temp_file.close()
+                    
+                    # Convert text to speech
+                    success = tts.text_to_speech(gujarati_text, output_file=temp_path)
+                    
+                    if success:
+                        st.success("✅ Audio generated successfully!")
+                        # Play the audio in the browser
+                        with open(temp_path, "rb") as audio_file:
+                            audio_bytes = audio_file.read()
+                            st.audio(audio_bytes, format="audio/wav")
+                            
+                        # Download button
+                        st.download_button(
+                            label="📥 Download Audio File",
+                            data=audio_bytes,
+                            file_name="gujarati_speech.wav",
+                            mime="audio/wav",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error("❌ Failed to generate audio. Please check your internet connection.")
+            else:
+                st.warning("⚠️ Please enter some Gujarati text first.")
+
+    # Show live statistics
+    if gujarati_text:
+        st.markdown("---")
+        st.markdown("**Text Statistics:**")
+        stat_col1, stat_col2 = st.columns(2)
+        stat_col1.metric("Character Count", len(gujarati_text))
+        stat_col2.metric("Word Count", len(gujarati_text.split()))
+
+# TAB 2: Examples
+with tab2:
+    st.header("📚 Example Gujarati Phrases")
+    examples = {
+        "Greeting": "નમસ્તે, આપ કેમ છો?",
+        "About AI": "આર્ટિફિશિયલ ઇંટેલિજન્સ ભવિષ્યનું ભાષા છે।",
+        "Language": "ગુજરાતી આપણી સુંદર ભાષા છે।",
+        "Technology": "તકનોલોજી આપણા જીવનને બદલી રહી છે।"
+    }
+    
+    for title, text in examples.items():
+        st.markdown(f"**{title}:** {text}")
+
+# TAB 3: About
+with tab3:
+    st.header("ℹ️ Project Information")
+    st.markdown("""
+    ### AI/ML Mini Project
+    This project demonstrates Natural Language Processing (NLP) and Speech Synthesis fundamentals by converting native Gujarati Unicode text into natural-sounding audio waveforms.
+    
+    **Concepts Demonstrated:**
+    * Text tokenization and Unicode parsing
+    * Neural Text-to-Speech (TTS) Synthesis
+    * Web Application Development using Streamlit
+    """)

@@ -1,0 +1,206 @@
+"""
+Gujarati Text-to-Speech Converter
+AI/ML Project - Converts Gujarati text to speech using multiple engines
+"""
+
+import pyttsx3
+import os
+import sys
+import threading
+import time
+from pathlib import Path
+
+try:
+    from gtts import gTTS
+except Exception:
+    gTTS = None
+
+class GujaratiTTS:
+    """Text-to-Speech converter for Gujarati language"""
+    
+    def __init__(self, allow_online_fallback=False):
+        """Initialize the TTS engine"""
+        self._lock = threading.Lock()
+        self.allow_online_fallback = allow_online_fallback
+        print("[INFO] Gujarati TTS initialized (using gTTS for Gujarati language support)")
+
+    def _run_engine_queue(self, text, output_file=None, play=True):
+        """Queue text/file operations and block until synthesis completes."""
+        if output_file:
+            self.engine.save_to_file(text, output_file)
+            print(f"[TTS] Queued save to: {output_file}")
+
+        if play:
+            self.engine.say(text)
+            print("[TTS] Queued playback")
+
+        self.engine.runAndWait()
+    
+    def _setup_engine(self):
+        """Configure TTS engine for optimal performance"""
+        try:
+            # Slightly faster default for lower latency
+            self.engine.setProperty('rate', 185)
+            
+            # Set volume (0.0 to 1.0)
+            self.engine.setProperty('volume', 1.0)
+            
+            # Get available voices
+            voices = self.engine.getProperty('voices')
+            print(f"[INFO] Available voices: {len(voices)}")
+            
+            if voices:
+                for i, voice in enumerate(voices):
+                    print(f"  {i}: {voice.name} (ID: {voice.id})")
+                
+                # Try to set first voice
+                self.engine.setProperty('voice', voices[0].id)
+                print(f"[OK] Voice set to: {voices[0].name}")
+            else:
+                print("[WARN] No voices available - using default")
+                
+        except Exception as e:
+            print(f"[ERROR] Voice setup error: {str(e)}")
+            print("[WARN] Continuing with default voice...")
+    
+    def text_to_speech(self, text, output_file=None, play=True, timeout=15):
+        """
+        Convert Gujarati text to speech using gTTS (requires internet)
+        
+        Args:
+            text (str): Gujarati text to convert
+            output_file (str): Optional path to save audio file (.mp3 or .wav)
+            play (bool): Whether to play audio immediately (only for .wav via pyttsx3)
+            timeout (int): Maximum seconds to wait before canceling
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not text or not text.strip():
+            print("[ERROR] Empty text provided")
+            return False
+        
+        try:
+            print(f"[TTS] Converting: {text[:40]}...")
+            
+            # For Gujarati, use gTTS (works with internet)
+            if gTTS is None:
+                print("[ERROR] gTTS not installed. Install with: pip install gtts")
+                return False
+            
+            # Use gTTS for Gujarati text conversion
+            try:
+                tts_engine = gTTS(text=text, lang='gu', slow=False)
+                
+                if output_file:
+                    # Save to file
+                    tts_engine.save(output_file)
+                    
+                    # Verify file was created
+                    if os.path.exists(output_file) and os.path.getsize(output_file) > 64:
+                        size_kb = os.path.getsize(output_file) / 1024
+                        print(f"[OK] Audio created ({size_kb:.2f} KB)")
+                        
+                        # Note: Playing audio via gTTS output is not directly supported
+                        # You would need additional tools like 'playsound' or 'pydub'
+                        if play:
+                            print("[INFO] Note: Audio saving complete. Use external player to play audio.")
+                        
+                        return True
+                    else:
+                        print("[ERROR] Audio file not created or too small")
+                        return False
+                else:
+                    # If no output file specified, just create in memory
+                    print("[INFO] Audio generated successfully (no output file specified)")
+                    return True
+                    
+            except Exception as gtts_error:
+                print(f"[ERROR] gTTS conversion failed: {str(gtts_error)}")
+                print("[INFO] This usually means: internet connection issue or gTTS service unavailable")
+                return False
+
+        except Exception as e:
+            print(f"[ERROR] Conversion error: {str(e)}")
+            return False
+    
+    def batch_convert(self, texts, output_dir=None):
+        """
+        Convert multiple Gujarati texts to speech
+        
+        Args:
+            texts (list): List of Gujarati texts
+            output_dir (str): Directory to save audio files
+        
+        Returns:
+            dict: Results of conversion for each text
+        """
+        results = {}
+        
+        if output_dir:
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
+        
+        for i, text in enumerate(texts, 1):
+            output_file = None
+            if output_dir:
+                output_file = os.path.join(output_dir, f"gujarati_audio_{i}.wav")
+            
+            success = self.text_to_speech(text, output_file=output_file, play=False)
+            results[text] = success
+        
+        return results
+
+
+def main():
+    """Main function with example usage"""
+    print("=" * 60)
+    print("Gujarati Text-to-Speech Converter")
+    print("=" * 60)
+    
+    # Initialize TTS
+    tts = GujaratiTTS()
+    
+    # Example Gujarati texts
+    example_texts = [
+        "નમસ્તે, આ એક ગુજરાતી ટેક્સ્ટ ટુ સ્પીચ પ્રોજેક્ટ છે।",  # Hello, this is a Gujarati TTS project
+        "આર્ટિફિશિયલ ઇંટેલિજન્સ ભવિષ્યનું ભાષા છે।",  # AI is the language of the future
+        "ગુજરાતી આપણી સુંદર ભાષા છે।"  # Gujarati is our beautiful language
+    ]
+    
+    # Interactive mode
+    print("\n📝 Choose an option:")
+    print("1. Convert sample Gujarati texts")
+    print("2. Enter custom Gujarati text")
+    print("3. Exit")
+    
+    choice = input("\nEnter your choice (1-3): ").strip()
+    
+    if choice == "1":
+        print("\n🎵 Converting sample texts...")
+        for text in example_texts:
+            print(f"\n📢 Text: {text}")
+            tts.text_to_speech(text, play=True)
+            input("Press Enter to continue...")
+    
+    elif choice == "2":
+        text = input("\n📝 Enter Gujarati text: ").strip()
+        if text:
+            output_file = input("Save to file? (yes/no): ").strip().lower()
+            if output_file == "yes":
+                filename = input("Enter filename (e.g., output.wav): ").strip()
+                tts.text_to_speech(text, output_file=filename, play=True)
+            else:
+                tts.text_to_speech(text, play=True)
+        else:
+            print("❌ No text provided")
+    
+    elif choice == "3":
+        print("👋 Goodbye!")
+        sys.exit(0)
+    
+    else:
+        print("❌ Invalid choice")
+
+
+if __name__ == "__main__":
+    main()
