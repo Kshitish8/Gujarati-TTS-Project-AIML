@@ -3,10 +3,41 @@ Web Interface for Gujarati Text-to-Speech using Streamlit
 Run with: streamlit run app.py
 """
 
-import streamlit as st
 import os
+import subprocess
+import sys
 import tempfile
+from pathlib import Path
+
+import streamlit as st
+
 from gujarati_tts import GujaratiTTS
+
+
+def launch_streamlit_app():
+    """Start the app through the Streamlit runtime when launched directly."""
+    project_root = Path(__file__).resolve().parent
+    cmd = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(project_root / "app.py"),
+        "--server.headless",
+        "true",
+        "--server.port",
+        "8501",
+    ]
+    try:
+        subprocess.run(cmd, cwd=str(project_root), check=False)
+    except Exception as exc:
+        print(f"[ERROR] Failed to start Streamlit: {exc}")
+
+
+if __name__ == "__main__" and "streamlit" not in sys.modules:
+    launch_streamlit_app()
+    raise SystemExit(0)
+
 
 # Page configuration
 st.set_page_config(page_title="Gujarati TTS", page_icon="🔊", layout="wide")
@@ -41,29 +72,30 @@ with tab1:
         if st.button("▶️ Generate & Play Audio", use_container_width=True, type="primary"):
             if gujarati_text.strip():
                 with st.spinner("Generating Neural Audio..."):
-                    # Create a temporary file to hold the audio
-                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
                     temp_path = temp_file.name
                     temp_file.close()
-                    
-                    # Convert text to speech
+
                     success = tts.text_to_speech(gujarati_text, output_file=temp_path)
-                    
+
                     if success:
                         st.success("✅ Audio generated successfully!")
-                        # Play the audio in the browser
                         with open(temp_path, "rb") as audio_file:
                             audio_bytes = audio_file.read()
-                            st.audio(audio_bytes, format="audio/wav")
-                            
-                        # Download button
+                            st.audio(audio_bytes, format="audio/mpeg")
+
                         st.download_button(
                             label="📥 Download Audio File",
                             data=audio_bytes,
-                            file_name="gujarati_speech.wav",
-                            mime="audio/wav",
-                            use_container_width=True
+                            file_name="gujarati_speech.mp3",
+                            mime="audio/mpeg",
+                            use_container_width=True,
                         )
+
+                        try:
+                            os.unlink(temp_path)
+                        except OSError:
+                            pass
                     else:
                         st.error("❌ Failed to generate audio. Please check your internet connection.")
             else:
